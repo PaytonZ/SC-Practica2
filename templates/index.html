@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+	<meta charset="utf-8" />
+	<title>Maschup SC</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta name="description" content="" />
+	<meta name="author" content="" />
+	<script type="text/javascript"
+	src="https://code.jquery.com/jquery-2.1.3.js"></script>
+	<link href="/assets/webjars/bootstrap/3.3.2/css/bootstrap.min.css"
+	rel="stylesheet" />
+	<!-- Optional theme -->
+	<link rel="stylesheet"
+	href="/assets/webjars/bootstrap/3.3.2/css/bootstrap-theme.min.css" />
+	<link rel="stylesheet"
+	href="http://js.arcgis.com/3.13/dijit/themes/tundra/tundra.css">
+	<link rel="stylesheet"
+	href="http://js.arcgis.com/3.13/esri/css/esri.css" />
+	<link rel="stylesheet" href="//js.arcgis.com/3.10/js/esri/css/esri.css" />
+	<!-- Web Framework CSS - Bootstrap (getbootstrap.com) and Bootstrap-map-js (github.com/esri/bootstrap-map-js) -->
+	<link
+	href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css"
+	rel="stylesheet" />
+	<link rel="stylesheet"
+	href="//esri.github.io/bootstrap-map-js/src/css/bootstrapmap.css" />
+	<script src="http://js.arcgis.com/3.13/"></script>
+	<!-- Latest compiled and minified JavaScript -->
+	<script>
+
+
+	var map;
+	var dialog;
+	var dialog1;
+	var mapData = new Array();
+	var SEARCH_X;
+	var SEARCH_Y;
+
+
+	require([
+		"esri/map", "esri/geometry/Point","esri/symbols/SimpleMarkerSymbol", "esri/SpatialReference",
+		"esri/dijit/PopupTemplate","esri/graphic","esri/layers/GraphicsLayer","esri/Color",
+		"esri/dijit/Search", "esri/symbols/SimpleFillSymbol","esri/symbols/SimpleLineSymbol",
+		"esri/lang","dojo/query","dojo/on", "dojo/dom", "esri/InfoTemplate", "dijit/Dialog", "dojo/dom-style","dijit/popup",
+		"esri/geometry/webMercatorUtils","dijit/TooltipDialog","dojo/domReady!",
+
+
+		], function 
+		(Map, Point , SimpleMarkerSymbol, SpatialReference, 
+			PopupTemplate, Graphic, GraphicsLayer, Color, 
+			Search , SimpleFillSymbol , SimpleLineSymbol,
+			esriLang , query, on, dom, InfoTemplate,Dialog,domStyle,dijitPopup,
+			webMercatorUtils, TooltipDialog
+			) {
+			map = new Map("map", {
+				basemap: "streets",
+                   center: [-3.69, 40.42], // lon, lat
+                   zoom: 15
+               });
+			function closeDialog() {  
+				map.graphics.clear();  
+				dijitPopup.close(dialog);  
+			}
+
+			function closeDialog1() {  
+				map.graphics.clear();  
+				dijitPopup.close(dialog1);  
+			}
+			function setDataLayer(x, y) {  
+
+				var highlightSymbol = new SimpleFillSymbol(
+					SimpleFillSymbol.STYLE_SOLID, 
+					new SimpleLineSymbol(
+						SimpleLineSymbol.STYLE_SOLID, 
+						new Color([255,0,0]), 3
+						), 
+					new Color([125,125,125,0.35])
+					);
+				map.graphics.clear();
+				var layerMadrid = new GraphicsLayer({					
+				});
+				var i = 0;
+				$.getJSON( "getdata?x="+x+"&y="+y+"&distance=100", function( data ) {
+					$.each(data['madrid'], function( index, value ) {
+						var point = new Point(value.fields.longitud, value.fields.latitud);
+						var simpleMarkerSymbol = new SimpleMarkerSymbol({
+							"color": [255,255,255,64],
+							"size": 12,
+							"angle": -30,
+							"xoffset": 0,
+							"yoffset": 0,
+							"type": "esriSMS",
+							"style": "esriSMSDiamond",
+							"outline": {
+								"color": [0,0,0,255],
+								"width": 1,
+								"type": "esriSLS",
+								"style": "esriSMSDiamond"
+							}
+						});
+						var attr = {
+							"descripcion":value.fields.descripcion,
+							"nombre" : value.fields.nombre,
+							"nombre" : value.fields.nombre,
+							"calle" : value.fields.tipo_via + " " + value.fields.nombre_via + " " + value.fields.numero
+						};
+						var graphic = new Graphic(point, simpleMarkerSymbol,attr);
+						layerMadrid.add(graphic);
+
+					});
+					layerMadrid.on("mouse-over",function(evt)
+					{
+						var t = "<b>Descripción</b> : ${descripcion} <br>";
+						t+= "<b> Nombre </b> : ${nombre} <br> ";
+						t+= "<b>Calle : ${calle} <br> "
+
+						var content = esriLang.substitute(evt.graphic.attributes,t);
+						var highlightGraphic = new Graphic(evt.graphic.geometry,highlightSymbol);
+						map.graphics.add(highlightGraphic);
+						dialog = new TooltipDialog({  
+							style: "position: absolute; width: 250px; font: normal normal normal 10pt Helvetica;z-index:100"  
+						});  
+						dialog.startup(); 
+						dialog.setContent(content);
+						domStyle.set(dialog.domNode, "opacity", 0.85);
+						dijitPopup.open({
+							popup: dialog, 
+							x: evt.pageX,
+							y: evt.pageY
+						});
+					});
+					layerMadrid.on("mouse-out",function(evt)
+					{
+						closeDialog();
+					});
+
+					var layerFacebook = new GraphicsLayer();
+					$.each(data['facebook'], function( index, value ) {
+						console.log("X:" + value.location.longitude)
+						var point1 = new Point(value.location.longitude, value.location.latitude);
+						var simpleMarkerSymbol1 = new SimpleMarkerSymbol({
+							"color": [59,89,152,64],
+							"size": 12,
+							"angle": -30,
+							"xoffset": 0,
+							"yoffset": 0,
+							"type": "esriSMS",
+							"style": "esriSMSSquare",
+							"outline": {
+								"color": [59,89,152,255],
+								"width": 1,
+								"type": "esriSLS",
+								"style": "esriSMSSquare"
+							}
+						});
+						var attr = {
+							"descripcion":value.category,
+							"nombre" : value.name,
+							"calle" : value.location.street
+						};
+						var graphic1 = new Graphic(point1, simpleMarkerSymbol1,attr);
+						layerFacebook.add(graphic1);
+
+					});					
+
+					layerFacebook.on("mouse-over",function(evt)
+					{
+						var t = "<b>Descripcion</b> : ${descripcion} <br>";
+						t+= "<b>Nombre :</b> ${nombre} <br> ";
+						t+= "<b>Calle :</b> ${calle} <br> "
+
+						var content = esriLang.substitute(evt.graphic.attributes,t);
+						var highlightGraphic = new Graphic(evt.graphic.geometry,highlightSymbol);
+						map.graphics.add(highlightGraphic);
+						dialog1 = new TooltipDialog({  
+							style: "position: absolute; width: 250px; font: normal normal normal 10pt Helvetica;z-index:100"  
+						});  
+						dialog1.startup(); 
+						dialog1.setContent(content);
+						domStyle.set(dialog1.domNode, "opacity", 0.85);
+						dijitPopup.open({
+							popup: dialog1, 
+							x: evt.pageX,
+							y: evt.pageY
+						});
+					});
+					layerFacebook.on("mouse-out",function(evt)
+					{
+						closeDialog1();
+					});
+
+					map.addLayer(layerFacebook);
+					map.addLayer(layerMadrid);
+				});
+}
+
+
+map.on("load", function() {
+	
+	var params = getSearchParameters();
+
+	if(undefined != params.x && undefined != params.y)
+	{
+		/*console.log("Map.on.load->");
+		console.log("x:" + params.x);
+		console.log("y:" + params.y);*/
+		var point = new Point(params.y, params.x);
+		console.log("Restaurando sesión anterior.");
+		map.centerAt(point);
+		setDataLayer(params.x,params.y);
+	}
+
+});
+
+
+
+var s = new Search({
+	map: map
+}, "search");
+s.startup();
+
+
+
+             // Wire UI Events
+             on(dom.byId("btnStreets"),"click", function() { 
+             	map.setBasemap("streets");
+             });
+             on(dom.byId("btnSatellite"),"click", function() { 
+             	map.setBasemap("satellite");
+             });
+             on(dom.byId("btnHybrid"),"click", function() { 
+             	map.setBasemap("hybrid");
+             });
+             on(dom.byId("btnTopo"),"click", function() { 
+             	map.setBasemap("topo");
+             });
+             on(dom.byId("btnGray"),"click", function() { 
+             	map.setBasemap("gray");
+             });
+             on(dom.byId("btnNatGeo"),"click", function() { 
+             	map.setBasemap("national-geographic");
+             });
+                // Toggle panel
+                on(dom.byId("chevron"), "click", function(e){
+                	if (query(".glyphicon.glyphicon-chevron-up")[0]) {
+                		query(".glyphicon").replaceClass("glyphicon-chevron-down","glyphicon-chevron-up");
+                		query(".panel-body.collapse").removeClass("in");
+                	} else {
+                		query(".glyphicon").replaceClass("glyphicon-chevron-up","glyphicon-chevron-down");
+                		query(".panel-body.collapse").addClass("in");
+                	}
+                });
+                
+                on(s,'select-result', function(e) {
+
+                	var mp = webMercatorUtils.webMercatorToGeographic(e.result.feature.geometry);
+                	var x = mp.x.toFixed(13) ;
+                	var y = mp.y.toFixed(13) ;
+                	SEARCH_X = y;
+                	SEARCH_Y = x;
+                	setDataLayer(y,x);
+
+                });
+
+            });
+
+function getSearchParameters() {
+	var prmstr = window.location.search.substr(1);
+	return prmstr != null && prmstr != "" ? transformToAssocArray(prmstr) : {};
+}
+
+function transformToAssocArray( prmstr ) {
+	var params = {};
+	var prmarr = prmstr.split("&");
+	for ( var i = 0; i < prmarr.length; i++) {
+		var tmparr = prmarr[i].split("=");
+		params[tmparr[0]] = tmparr[1];
+	}
+	return params;
+}
+
+function onSaveSearch()
+{
+	if (undefined != SEARCH_X && undefined != SEARCH_Y)
+	{
+		//var url = "shorturl?url='"+'"
+		var data = {
+			url : window.location.origin+"?x="+SEARCH_X+"&y="+SEARCH_Y,
+		}
+		$.getJSON( "shorturl", data , function( json ) {
+			
+			prompt("Comparte tu búsqueda:", json.url);
+		});
+	}
+	else
+	{
+		alert("¡Antes de guardar una búsqueda , debes realizar una!")
+	}
+}
+
+
+
+</script>
+<style type="text/css">
+body {
+	padding-top: 60px;
+	padding-bottom: 40px;
+}
+
+.error-template {
+	padding: 40px 15px;
+	text-align: center;
+}
+</style>
+<style>
+html, body, #map {
+	height: 100%;
+	width: 100%;
+}
+
+#search {
+	margin-top: 10px;
+}
+</style>
+
+</head>
+<body class="claro">
+	<!--  <script src="assets/js/main.js"></script>-->
+
+
+	<div class="navbar navbar-inverse navbar-fixed-top">
+		<div class="container">
+			<div class="navbar-header">
+				<button type="button" class="navbar-toggle" data-toggle="collapse"
+				data-target=".navbar-collapse">
+				<span class="icon-bar"></span> <span class="icon-bar"></span> <span
+				class="icon-bar"></span>
+			</button>
+			<a class="navbar-brand" href="/">Mashup SC</a>
+		</div>
+		<div class="navbar-collapse collapse">
+			<ul class="nav navbar-nav">
+				<li class="active"><a href="/">Principal</a></li>
+				<li><div id="search"></div></li>
+				<li class=""><a href="#" onclick="onSaveSearch();">Guardar Búsqueda</a></li>
+
+			</ul>
+			
+
+
+		</div>
+		<!--/.navbar-collapse -->
+
+	</div>
+</div>
+<div class="panel panel-primary panel-fixed" style="top: 100px;">
+	<div class="panel-heading">
+		<h3 class="panel-title">Mostrar - Ocultar Panel</h3>
+		<button id="chevron" class="btn btn-primary btn-xs btn-absolute">
+			<span class="glyphicon glyphicon-chevron-up"></span>
+		</button>
+	</div>
+	<div class="panel-body collapse in">
+		<div class="btn-toolbar">
+			<div class="btn-group">
+				<button id="btnStreets" class="btn btn-default">Calles</button>
+				<button id="btnSatellite" class="btn btn-default">Satélite</button>
+				<button id="btnHybrid" class="btn btn-default">Híbrido</button>
+				<button id="btnTopo" class="btn btn-default">Topografía</button>
+			</div>
+		</div>
+		<div class="btn-toolbar">
+			<div class="btn-group">
+				<button id="btnGray" class="btn btn-default">Gris</button>
+				<button id="btnNatGeo" class="btn btn-default">National
+					Geographic</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+
+	<div id="map"></div>
+	<!--  </div>/container -->
+
+	<script type="text/javascript"
+	src="/assets/webjars/tinymce-jquery/4.0.16/jscripts/tiny_mce/tiny_mce.js"></script>
+	<script type="text/javascript"
+	src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+</body>
+
+</html>
